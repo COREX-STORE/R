@@ -395,9 +395,6 @@
         .logo-container {
             position: relative;
             margin-bottom: 30px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
         }
 
         .logo-wrapper {
@@ -417,8 +414,6 @@
             border: 3px solid var(--glass-border);
             box-shadow: 0 0 40px rgba(139, 92, 246, 0.4);
             transition: all 0.3s ease;
-            position: relative;
-            z-index: 1;
         }
 
         .logo:hover {
@@ -428,18 +423,15 @@
 
         .logo-ring {
             position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 170px;
-            height: 170px;
-            transform: translate(-50%, -50%);
+            top: -10px;
+            left: -10px;
+            right: -10px;
+            bottom: -10px;
             border-radius: 50%;
             border: 2px solid transparent;
             border-top-color: var(--primary-purple);
             border-right-color: var(--accent-purple);
             animation: rotate 3s linear infinite;
-            z-index: 2;
-            pointer-events: none;
         }
 
         @keyframes rotate {
@@ -566,7 +558,7 @@
         /* Scroll Indicator */
         .scroll-indicator {
             position: absolute;
-            bottom: 20px;
+            bottom: 5px;
             left: 50%;
             transform: translateX(-50%);
             text-align: center;
@@ -1173,10 +1165,8 @@
     <!-- Hero Section -->
     <section class="hero">
         <div class="logo-container">
-            <div class="logo-wrapper">
-                <div class="logo-ring"></div>
-                <img src="https://files.catbox.moe/y6fqhh.jpg" alt="COREX STORE Logo" class="logo">
-            </div>
+            <div class="logo-ring"></div>
+            <img src="https://files.catbox.moe/y6fqhh.jpg" alt="COREX STORE Logo" class="logo">
         </div>
 
         <h1 class="store-name">COREX STORE</h1>

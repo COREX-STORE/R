@@ -394,7 +394,6 @@ window.editProduct = async function(id) {
             }
 
             currentEditId = id;
-            currentEditDb = db;
 
             openSidebar();
             addProductForm?.classList.add('active');
