@@ -36,6 +36,28 @@ const dbProducts = getDatabase(appProducts);
 let isAdmin = false;
 let currentEditId = null;
 
+// Cookie Helpers
+function setCookie(name, value, days = 30) {
+    const expires = new Date();
+    expires.setTime(expires.getTime() + (days * 24 * 60 * 60 * 1000));
+    document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/;SameSite=Lax`;
+}
+
+function getCookie(name) {
+    const nameEQ = name + "=";
+    const ca = document.cookie.split(';');
+    for(let i = 0; i < ca.length; i++) {
+        let c = ca[i];
+        while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+        if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length);
+    }
+    return null;
+}
+
+function deleteCookie(name) {
+    document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+}
+
 // DOM Elements
 const adminBtn = document.getElementById('adminBtn');
 const loginModal = document.getElementById('loginModal');
@@ -196,7 +218,9 @@ async function handleLogin(e) {
 
 function loginSuccess() {
     isAdmin = true;
+    // Save to both sessionStorage and cookies
     sessionStorage.setItem('corexAdmin', 'true');
+    setCookie('corexAdmin', 'true', 30); // Cookie expires in 30 days
     closeLoginModal();
     openSidebar();
     loadProducts(); // Reload to show admin controls
@@ -204,14 +228,24 @@ function loginSuccess() {
 }
 
 function checkAdminSession() {
-    if (sessionStorage.getItem('corexAdmin') === 'true') {
+    // Check both sessionStorage and cookies
+    const sessionAdmin = sessionStorage.getItem('corexAdmin') === 'true';
+    const cookieAdmin = getCookie('corexAdmin') === 'true';
+
+    if (sessionAdmin || cookieAdmin) {
         isAdmin = true;
+        // Sync cookie if only session exists
+        if (sessionAdmin && !cookieAdmin) {
+            setCookie('corexAdmin', 'true', 30);
+        }
     }
 }
 
 function handleLogout() {
     isAdmin = false;
+    // Clear both sessionStorage and cookies
     sessionStorage.removeItem('corexAdmin');
+    deleteCookie('corexAdmin');
     closeSidebarFn();
     loadProducts(); // Reload to hide admin controls
     showToast('تم تسجيل الخروج', 'success');
