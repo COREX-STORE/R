@@ -2,8 +2,8 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getDatabase, ref, push, set, get, update, remove, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-// Firebase Configuration 1 (Main - for passwords and alternating products)
-const firebaseConfig1 = {
+// Firebase Configuration 1 - Admin/Password ONLY
+const firebaseConfigAdmin = {
     apiKey: "AIzaSyCyJ42RKLNvWhRHnhGkGsZxbhlZx5u4AGo",
     authDomain: "corex-store.firebaseapp.com",
     databaseURL: "https://corex-store-default-rtdb.europe-west1.firebasedatabase.app",
@@ -13,29 +13,28 @@ const firebaseConfig1 = {
     appId: "1:531906370834:web:6a2c264e36892aac8227cb"
 };
 
-// Firebase Configuration 2 (Secondary - for alternating products)
-const firebaseConfig2 = {
-    apiKey: "AIzaSyCCUDK1HrhU_fxoQH3-c0g_eAHdhPlm_2M",
-    authDomain: "corex-store-2374d.firebaseapp.com",
-    projectId: "corex-store-2374d",
-    storageBucket: "corex-store-2374d.firebasestorage.app",
-    messagingSenderId: "953043397413",
-    appId: "1:953043397413:web:0765bf89c8089bf98908cc"
+// Firebase Configuration 2 - Products ONLY (NEW)
+const firebaseConfigProducts = {
+    apiKey: "AIzaSyCEfWL8YRWslT9B6PVBJJZSnHa3EsnFRf0",
+    authDomain: "corex-store1.firebaseapp.com",
+    databaseURL: "https://corex-store1-default-rtdb.firebaseio.com",
+    projectId: "corex-store1",
+    storageBucket: "corex-store1.firebasestorage.app",
+    messagingSenderId: "280887883511",
+    appId: "1:280887883511:web:1c43a6ce3ecc834a8485f2"
 };
 
 // Initialize Firebase apps
-const app1 = initializeApp(firebaseConfig1, "app1");
-const app2 = initializeApp(firebaseConfig2, "app2");
+const appAdmin = initializeApp(firebaseConfigAdmin, "appAdmin");
+const appProducts = initializeApp(firebaseConfigProducts, "appProducts");
 
 // Get database references
-const db1 = getDatabase(app1);
-const db2 = getDatabase(app2);
+const dbAdmin = getDatabase(appAdmin);
+const dbProducts = getDatabase(appProducts);
 
 // Global state
 let isAdmin = false;
 let currentEditId = null;
-let currentEditDb = null;
-let useFirstDb = true; // Alternating flag for new products
 
 // DOM Elements
 const adminBtn = document.getElementById('adminBtn');
@@ -99,7 +98,6 @@ function setupEventListeners() {
         resetProductForm();
         addProductForm?.classList.add('active');
         currentEditId = null;
-        currentEditDb = null;
     });
 
     // Theme button
@@ -172,8 +170,8 @@ async function handleLogin(e) {
     const password = document.getElementById('password').value;
 
     try {
-        // Check if password exists in database
-        const passwordRef = ref(db1, 'admin/password');
+        // Check if password exists in database (using dbAdmin for login)
+        const passwordRef = ref(dbAdmin, 'admin/password');
         const snapshot = await get(passwordRef);
 
         if (snapshot.exists()) {
@@ -222,31 +220,14 @@ function handleLogout() {
 // Product Functions
 async function loadProducts() {
     try {
-        // Get products from both databases
-        const [snapshot1, snapshot2] = await Promise.all([
-            get(ref(db1, 'products')),
-            get(ref(db2, 'products'))
-        ]);
-
+        // Get products from new database ONLY (dbProducts)
+        const snapshot = await get(ref(dbProducts, 'products'));
         const products = [];
 
-        // Process first database
-        if (snapshot1.exists()) {
-            snapshot1.forEach((childSnapshot) => {
+        if (snapshot.exists()) {
+            snapshot.forEach((childSnapshot) => {
                 products.push({
                     id: childSnapshot.key,
-                    db: 'db1',
-                    ...childSnapshot.val()
-                });
-            });
-        }
-
-        // Process second database
-        if (snapshot2.exists()) {
-            snapshot2.forEach((childSnapshot) => {
-                products.push({
-                    id: childSnapshot.key,
-                    db: 'db2',
                     ...childSnapshot.val()
                 });
             });
@@ -289,7 +270,10 @@ function createProductCard(product) {
         : null;
 
     return `
-        <div class="product-card glass-card" data-id="${product.id}" data-db="${product.db}">
+        <div class="product-card glass-card" data-id="${product.id}">
+            <div class="liquid-border"></div>
+            <div class="water-ripple"></div>
+            <div class="glass-reflection"></div>
             <img src="${product.image || 'https://via.placeholder.com/400x300?text=No+Image'}" 
                  alt="${product.name}" 
                  class="product-image"
@@ -312,11 +296,11 @@ function createProductCard(product) {
                 </div>
                 ${isAdmin ? `
                     <div class="admin-actions visible">
-                        <button class="btn-edit" onclick="editProduct('${product.id}', '${product.db}')">
+                        <button class="btn-edit" onclick="editProduct('${product.id}')">
                             <i class="fas fa-edit"></i>
                             تعديل
                         </button>
-                        <button class="btn-delete" onclick="deleteProduct('${product.id}', '${product.db}')">
+                        <button class="btn-delete" onclick="deleteProduct('${product.id}')">
                             <i class="fas fa-trash"></i>
                             حذف
                         </button>
@@ -347,10 +331,9 @@ window.shareProduct = function(name, price) {
     }
 };
 
-window.editProduct = async function(id, db) {
+window.editProduct = async function(id) {
     try {
-        const database = db === 'db1' ? db1 : db2;
-        const snapshot = await get(ref(database, `products/${id}`));
+        const snapshot = await get(ref(dbProducts, `products/${id}`));
 
         if (snapshot.exists()) {
             const product = snapshot.val();
@@ -390,12 +373,11 @@ window.editProduct = async function(id, db) {
     }
 };
 
-window.deleteProduct = async function(id, db) {
+window.deleteProduct = async function(id) {
     if (!confirm('هل أنت متأكد من حذف هذا المنتج؟')) return;
 
     try {
-        const database = db === 'db1' ? db1 : db2;
-        await remove(ref(database, `products/${id}`));
+        await remove(ref(dbProducts, `products/${id}`));
 
         showToast('تم حذف المنتج بنجاح', 'success');
         loadProducts();
@@ -429,27 +411,14 @@ async function saveProduct() {
     };
 
     try {
-        let database;
-
-        if (currentEditId && currentEditDb) {
+        if (currentEditId) {
             // Update existing product
-            database = currentEditDb === 'db1' ? db1 : db2;
-            await update(ref(database, `products/${currentEditId}`), productData);
+            await update(ref(dbProducts, `products/${currentEditId}`), productData);
             showToast('تم تحديث المنتج بنجاح', 'success');
         } else {
-            // Add new product - alternate between databases
-            if (useFirstDb) {
-                database = db1;
-            } else {
-                database = db2;
-            }
-
-            const newProductRef = push(ref(database, 'products'));
+            // Add new product
+            const newProductRef = push(ref(dbProducts, 'products'));
             await set(newProductRef, productData);
-
-            // Toggle for next time
-            useFirstDb = !useFirstDb;
-
             showToast('تم إضافة المنتج بنجاح', 'success');
         }
 
@@ -484,12 +453,7 @@ function showToast(message, type = 'success') {
 
 // Real-time updates
 function setupRealtimeListeners() {
-    // Listen to both databases
-    onValue(ref(db1, 'products'), () => {
-        if (!currentEditId) loadProducts();
-    });
-
-    onValue(ref(db2, 'products'), () => {
+    onValue(ref(dbProducts, 'products'), () => {
         if (!currentEditId) loadProducts();
     });
 }
