@@ -1,0 +1,13 @@
+{
+  "rules": {
+    ".read": true,
+    ".write": true,
+    "products": {
+      ".indexOn": ["timestamp"]
+    },
+    "admin": {
+      ".read": true,
+      ".write": true
+    }
+  }
+}
