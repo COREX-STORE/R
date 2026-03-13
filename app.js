@@ -67,7 +67,7 @@ if (loginForm) {
         const passwordInput = document.getElementById('password').value;
 
         try {
-            const adminRef = ref(dbAdmin, 'adminConfig');
+            const adminRef = ref(dbAdmin, 'admin');
             const snapshot = await get(adminRef);
             const data = snapshot.val();
 
