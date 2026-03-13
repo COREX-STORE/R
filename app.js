@@ -29,6 +29,7 @@ const dbProducts = getDatabase(appProducts);
 let isAdmin = false;
 let currentEditId = null;
 
+// المعرفات من ملف HTML الخاص بك
 const adminBtn = document.getElementById('adminBtn');
 const loginModal = document.getElementById('loginModal');
 const closeModal = document.getElementById('closeModal');
@@ -42,12 +43,9 @@ const addProductForm = document.getElementById('addProductForm');
 const saveProductBtn = document.getElementById('saveProductBtn');
 const toast = document.getElementById('toast');
 
+// نظام تسجيل الدخول
 if (adminBtn) adminBtn.onclick = () => loginModal.classList.add('active');
 if (closeModal) closeModal.onclick = () => loginModal.classList.remove('active');
-if (sidebarOverlay) sidebarOverlay.onclick = () => {
-    sidebar.classList.remove('active');
-    sidebarOverlay.classList.remove('active');
-};
 
 if (loginForm) {
     loginForm.onsubmit = async (e) => {
@@ -65,7 +63,7 @@ if (loginForm) {
                 alert("كلمة المرور غير صحيحة.");
             }
         } catch (error) {
-            alert("فشل التحقق: تأكد من صلاحية القراءة في القاعدة الأولى.");
+            alert("فشل التحقق: تأكد من Rules القاعدة الأولى.");
         }
     };
 }
@@ -86,8 +84,10 @@ if (closeSidebar) {
     };
 }
 
+// دالة حفظ المنتج (هنا يتم الحفظ في القاعدة الثانية)
 async function saveProduct() {
     if (!isAdmin) return;
+    
     const name = document.getElementById('productName').value.trim();
     const desc = document.getElementById('productDesc').value.trim();
     const price = document.getElementById('productPrice').value.trim();
@@ -101,13 +101,17 @@ async function saveProduct() {
     }
 
     const productData = {
-        name, description: desc, price,
+        name,
+        description: desc,
+        price,
         image: image || 'https://files.catbox.moe/y6fqhh.jpg',
-        hasDiscount, discountPercent: hasDiscount ? discountPercent : 0,
+        hasDiscount,
+        discountPercent: hasDiscount ? discountPercent : 0,
         timestamp: Date.now()
     };
 
     try {
+        // الحفظ يتم في مسار 'products' في القاعدة الثانية
         if (currentEditId) {
             await update(ref(dbProducts, `products/${currentEditId}`), productData);
             showToast("تم التحديث بنجاح");
@@ -117,7 +121,8 @@ async function saveProduct() {
         }
         resetForm();
     } catch (error) {
-        showToast("خطأ في الصلاحيات: تأكد من Rules القاعدة الثانية", "error");
+        console.error(error);
+        showToast("خطأ في الحفظ: راجع قواعد Rules القاعدة الثانية", "error");
     }
 }
 
