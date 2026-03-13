@@ -13,7 +13,7 @@ const firebaseConfigAdmin = {
     appId: "1:531906370834:web:6a2c264e36892aac8227cb"
 };
 
-// Firebase Configuration 2 - Products ONLY (NEW)
+// Firebase Configuration 2 - Products ONLY
 const firebaseConfigProducts = {
     apiKey: "AIzaSyCEfWL8YRWslT9B6PVBJJZSnHa3EsnFRf0",
     authDomain: "corex-store1.firebaseapp.com",
@@ -35,6 +35,11 @@ const dbProducts = getDatabase(appProducts);
 // Global state
 let isAdmin = false;
 let currentEditId = null;
+
+// DOM Elements - will be initialized after DOM loads
+let adminBtn, loginModal, closeModal, loginForm, sidebar, sidebarOverlay, closeSidebar;
+let addProductBtn, addProductForm, themeBtn, themeSelector, saveProductBtn, logoutBtn;
+let productsGrid, toast, hasDiscount, discountGroup;
 
 // Cookie Helpers
 function setCookie(name, value, days = 30) {
@@ -58,38 +63,45 @@ function deleteCookie(name) {
     document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
 }
 
-// DOM Elements
-const adminBtn = document.getElementById('adminBtn');
-const loginModal = document.getElementById('loginModal');
-const closeModal = document.getElementById('closeModal');
-const loginForm = document.getElementById('loginForm');
-const sidebar = document.getElementById('sidebar');
-const sidebarOverlay = document.getElementById('sidebarOverlay');
-const closeSidebar = document.getElementById('closeSidebar');
-const addProductBtn = document.getElementById('addProductBtn');
-const addProductForm = document.getElementById('addProductForm');
-const themeBtn = document.getElementById('themeBtn');
-const themeSelector = document.getElementById('themeSelector');
-const saveProductBtn = document.getElementById('saveProductBtn');
-const logoutBtn = document.getElementById('logoutBtn');
-const productsGrid = document.getElementById('productsGrid');
-const toast = document.getElementById('toast');
-
-// Discount checkbox toggle
-const hasDiscount = document.getElementById('hasDiscount');
-const discountGroup = document.getElementById('discountGroup');
-
-hasDiscount?.addEventListener('change', () => {
-    discountGroup.style.display = hasDiscount.checked ? 'block' : 'none';
-});
+// Initialize DOM Elements
+function initDOMElements() {
+    adminBtn = document.getElementById('adminBtn');
+    loginModal = document.getElementById('loginModal');
+    closeModal = document.getElementById('closeModal');
+    loginForm = document.getElementById('loginForm');
+    sidebar = document.getElementById('sidebar');
+    sidebarOverlay = document.getElementById('sidebarOverlay');
+    closeSidebar = document.getElementById('closeSidebar');
+    addProductBtn = document.getElementById('addProductBtn');
+    addProductForm = document.getElementById('addProductForm');
+    themeBtn = document.getElementById('themeBtn');
+    themeSelector = document.getElementById('themeSelector');
+    saveProductBtn = document.getElementById('saveProductBtn');
+    logoutBtn = document.getElementById('logoutBtn');
+    productsGrid = document.getElementById('productsGrid');
+    toast = document.getElementById('toast');
+    hasDiscount = document.getElementById('hasDiscount');
+    discountGroup = document.getElementById('discountGroup');
+}
 
 // Initialize
-document.addEventListener('DOMContentLoaded', () => {
+function init() {
+    initDOMElements();
     loadProducts();
     checkAdminSession();
     setupEventListeners();
     setupThemeSelector();
-});
+    setupDiscountToggle();
+}
+
+// Setup Discount Toggle
+function setupDiscountToggle() {
+    if (hasDiscount && discountGroup) {
+        hasDiscount.addEventListener('change', () => {
+            discountGroup.style.display = hasDiscount.checked ? 'block' : 'none';
+        });
+    }
+}
 
 // Event Listeners
 function setupEventListeners() {
@@ -125,11 +137,15 @@ function setupEventListeners() {
     // Theme button
     themeBtn?.addEventListener('click', () => {
         const selector = document.getElementById('themeSelector');
-        selector.style.display = selector.style.display === 'none' ? 'flex' : 'none';
+        if (selector) {
+            selector.style.display = selector.style.display === 'none' ? 'flex' : 'none';
+        }
     });
 
-    // Save product
-    saveProductBtn?.addEventListener('click', saveProduct);
+    // Save product - IMPORTANT: Use direct onclick handler
+    if (saveProductBtn) {
+        saveProductBtn.onclick = saveProduct;
+    }
 
     // Logout
     logoutBtn?.addEventListener('click', handleLogout);
@@ -212,7 +228,7 @@ async function handleLogin(e) {
         }
     } catch (error) {
         console.error('Login error:', error);
-        showToast('حدث خطأ في تسجيل الدخول', 'error');
+        showToast('حدث خطأ في تسجيل الدخول: ' + error.message, 'error');
     }
 }
 
@@ -220,21 +236,19 @@ function loginSuccess() {
     isAdmin = true;
     // Save to both sessionStorage and cookies
     sessionStorage.setItem('corexAdmin', 'true');
-    setCookie('corexAdmin', 'true', 30); // Cookie expires in 30 days
+    setCookie('corexAdmin', 'true', 30);
     closeLoginModal();
     openSidebar();
-    loadProducts(); // Reload to show admin controls
+    loadProducts();
     showToast('تم تسجيل الدخول بنجاح', 'success');
 }
 
 function checkAdminSession() {
-    // Check both sessionStorage and cookies
     const sessionAdmin = sessionStorage.getItem('corexAdmin') === 'true';
     const cookieAdmin = getCookie('corexAdmin') === 'true';
 
     if (sessionAdmin || cookieAdmin) {
         isAdmin = true;
-        // Sync cookie if only session exists
         if (sessionAdmin && !cookieAdmin) {
             setCookie('corexAdmin', 'true', 30);
         }
@@ -243,18 +257,17 @@ function checkAdminSession() {
 
 function handleLogout() {
     isAdmin = false;
-    // Clear both sessionStorage and cookies
     sessionStorage.removeItem('corexAdmin');
     deleteCookie('corexAdmin');
     closeSidebarFn();
-    loadProducts(); // Reload to hide admin controls
+    loadProducts();
     showToast('تم تسجيل الخروج', 'success');
 }
 
 // Product Functions
 async function loadProducts() {
     try {
-        // Get products from new database ONLY (dbProducts)
+        // Get products from dbProducts
         const snapshot = await get(ref(dbProducts, 'products'));
         const products = [];
 
@@ -273,17 +286,21 @@ async function loadProducts() {
         displayProducts(products);
     } catch (error) {
         console.error('Error loading products:', error);
-        productsGrid.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-exclamation-circle"></i>
-                <h3>حدث خطأ في تحميل المنتجات</h3>
-                <p>يرجى المحاولة مرة أخرى</p>
-            </div>
-        `;
+        if (productsGrid) {
+            productsGrid.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <h3>حدث خطأ في تحميل المنتجات</h3>
+                    <p>${error.message}</p>
+                </div>
+            `;
+        }
     }
 }
 
 function displayProducts(products) {
+    if (!productsGrid) return;
+
     if (products.length === 0) {
         productsGrid.innerHTML = `
             <div class="empty-state">
@@ -323,7 +340,7 @@ function createProductCard(product) {
                     ` : ''}
                 </div>
                 <div class="product-actions">
-                    <button class="btn-share" onclick="shareProduct('${product.name}', ${discountedPrice || product.price})">
+                    <button class="btn-share" onclick="shareProduct('${escapeString(product.name)}', ${discountedPrice || product.price})">
                         <i class="fas fa-share-alt"></i>
                         مشاركة
                     </button>
@@ -345,7 +362,11 @@ function createProductCard(product) {
     `;
 }
 
-// Make functions available globally for onclick handlers
+function escapeString(str) {
+    return str ? str.replace(/'/g, "\\'").replace(/"/g, '\\"') : '';
+}
+
+// Share Product
 window.shareProduct = function(name, price) {
     const shareText = `تفقد هذا المنتج من COREX STORE:\n${name}\nالسعر: ${price} د.ع\n\n📍 بغداد - العامرية\n📞 07863300229`;
 
@@ -358,13 +379,13 @@ window.shareProduct = function(name, price) {
             // User cancelled or error
         });
     } else {
-        // Fallback - copy to clipboard
         navigator.clipboard.writeText(shareText).then(() => {
             showToast('تم نسخ معلومات المنتج للمشاركة', 'success');
         });
     }
 };
 
+// Edit Product
 window.editProduct = async function(id) {
     try {
         const snapshot = await get(ref(dbProducts, `products/${id}`));
@@ -380,16 +401,16 @@ window.editProduct = async function(id) {
 
             // Discount
             const hasDiscountCheckbox = document.getElementById('hasDiscount');
-            const discountGroup = document.getElementById('discountGroup');
+            const discountGroupEl = document.getElementById('discountGroup');
             const discountPercent = document.getElementById('discountPercent');
 
             if (product.hasDiscount) {
                 hasDiscountCheckbox.checked = true;
-                discountGroup.style.display = 'block';
+                discountGroupEl.style.display = 'block';
                 discountPercent.value = product.discountPercent || '';
             } else {
                 hasDiscountCheckbox.checked = false;
-                discountGroup.style.display = 'none';
+                discountGroupEl.style.display = 'none';
                 discountPercent.value = '';
             }
 
@@ -406,12 +427,12 @@ window.editProduct = async function(id) {
     }
 };
 
+// Delete Product
 window.deleteProduct = async function(id) {
     if (!confirm('هل أنت متأكد من حذف هذا المنتج؟')) return;
 
     try {
         await remove(ref(dbProducts, `products/${id}`));
-
         showToast('تم حذف المنتج بنجاح', 'success');
         loadProducts();
     } catch (error) {
@@ -420,28 +441,51 @@ window.deleteProduct = async function(id) {
     }
 };
 
+// Save Product - THE MAIN FUNCTION
 async function saveProduct() {
-    const name = document.getElementById('productName').value.trim();
-    const description = document.getElementById('productDesc').value.trim();
-    const price = parseFloat(document.getElementById('productPrice').value);
-    const image = document.getElementById('productImage').value.trim();
-    const hasDiscountChecked = document.getElementById('hasDiscount').checked;
-    const discountPercent = parseInt(document.getElementById('discountPercent').value) || 0;
+    console.log('saveProduct called');
 
-    if (!name || !price) {
-        showToast('الرجاء إدخال اسم المنتج والسعر', 'error');
+    const nameEl = document.getElementById('productName');
+    const descEl = document.getElementById('productDesc');
+    const priceEl = document.getElementById('productPrice');
+    const imageEl = document.getElementById('productImage');
+    const hasDiscountEl = document.getElementById('hasDiscount');
+    const discountPercentEl = document.getElementById('discountPercent');
+
+    if (!nameEl || !priceEl) {
+        showToast('خطأ: عناصر النموذج غير موجودة', 'error');
+        return;
+    }
+
+    const name = nameEl.value.trim();
+    const description = descEl ? descEl.value.trim() : '';
+    const price = parseFloat(priceEl.value);
+    const image = imageEl ? imageEl.value.trim() : '';
+    const hasDiscountChecked = hasDiscountEl ? hasDiscountEl.checked : false;
+    const discountPercent = discountPercentEl ? parseInt(discountPercentEl.value) || 0 : 0;
+
+    // Validation
+    if (!name) {
+        showToast('الرجاء إدخال اسم المنتج', 'error');
+        return;
+    }
+
+    if (!price || isNaN(price) || price <= 0) {
+        showToast('الرجاء إدخال سعر صحيح للمنتج', 'error');
         return;
     }
 
     const productData = {
-        name,
-        description,
-        price,
+        name: name,
+        description: description,
+        price: price,
         image: image || 'https://via.placeholder.com/400x300?text=No+Image',
         hasDiscount: hasDiscountChecked,
         discountPercent: hasDiscountChecked ? discountPercent : 0,
         timestamp: Date.now()
     };
+
+    console.log('Saving product:', productData);
 
     try {
         if (currentEditId) {
@@ -460,22 +504,31 @@ async function saveProduct() {
         loadProducts();
     } catch (error) {
         console.error('Error saving product:', error);
-        showToast('حدث خطأ في حفظ المنتج', 'error');
+        showToast('حدث خطأ في حفظ المنتج: ' + error.message, 'error');
     }
 }
 
 function resetProductForm() {
-    document.getElementById('productName').value = '';
-    document.getElementById('productDesc').value = '';
-    document.getElementById('productPrice').value = '';
-    document.getElementById('productImage').value = '';
-    document.getElementById('hasDiscount').checked = false;
-    document.getElementById('discountPercent').value = '';
-    document.getElementById('discountGroup').style.display = 'none';
+    const nameEl = document.getElementById('productName');
+    const descEl = document.getElementById('productDesc');
+    const priceEl = document.getElementById('productPrice');
+    const imageEl = document.getElementById('productImage');
+    const hasDiscountEl = document.getElementById('hasDiscount');
+    const discountPercentEl = document.getElementById('discountPercent');
+    const discountGroupEl = document.getElementById('discountGroup');
+
+    if (nameEl) nameEl.value = '';
+    if (descEl) descEl.value = '';
+    if (priceEl) priceEl.value = '';
+    if (imageEl) imageEl.value = '';
+    if (hasDiscountEl) hasDiscountEl.checked = false;
+    if (discountPercentEl) discountPercentEl.value = '';
+    if (discountGroupEl) discountGroupEl.style.display = 'none';
 }
 
 // Toast Notification
 function showToast(message, type = 'success') {
+    if (!toast) return;
     toast.textContent = message;
     toast.className = `toast ${type} show`;
 
@@ -490,6 +543,9 @@ function setupRealtimeListeners() {
         if (!currentEditId) loadProducts();
     });
 }
+
+// Start initialization when DOM is ready
+document.addEventListener('DOMContentLoaded', init);
 
 // Setup realtime after initial load
 setTimeout(setupRealtimeListeners, 1000);
