@@ -42,52 +42,59 @@ const addProductForm = document.getElementById('addProductForm');
 const saveProductBtn = document.getElementById('saveProductBtn');
 const toast = document.getElementById('toast');
 
-if (adminBtn) {
-    adminBtn.onclick = () => {
-        loginModal.classList.add('active');
-    };
-}
-
-if (closeModal) {
-    closeModal.onclick = () => {
-        loginModal.classList.remove('active');
-    };
-}
-
-if (sidebarOverlay) {
-    sidebarOverlay.onclick = () => {
-        sidebar.classList.remove('active');
-        sidebarOverlay.classList.remove('active');
-    };
-}
+if (adminBtn) adminBtn.onclick = () => loginModal.classList.add('active');
+if (closeModal) closeModal.onclick = () => loginModal.classList.remove('active');
+if (sidebarOverlay) sidebarOverlay.onclick = () => {
+    sidebar.classList.remove('active');
+    sidebarOverlay.classList.remove('active');
+};
 
 if (loginForm) {
     loginForm.onsubmit = async (e) => {
         e.preventDefault();
-        const passwordInput = document.getElementById('password').value;
+        const passwordInput = document.getElementById('password').value.trim();
 
         try {
+            // جلب المجلد 'admin' بالكامل
             const adminRef = ref(dbAdmin, 'admin');
             const snapshot = await get(adminRef);
-            const data = snapshot.val();
+            
+            if (!snapshot.exists()) {
+                console.error("المسار 'admin' غير موجود في قاعدة البيانات!");
+                alert("خطأ: لم يتم العثور على إعدادات الإدمن في السيرفر.");
+                return;
+            }
 
-            if (data && data.password === passwordInput) {
+            const data = snapshot.val();
+            console.log("البيانات المستلمة من السيرفر:", data);
+
+            // فحص كلمة السر بأكثر من طريقة لضمان المطابقة
+            let savedPassword = "";
+            if (typeof data === 'object') {
+                savedPassword = data.password; // إذا كان المسار يحتوي على حقل password
+            } else {
+                savedPassword = data; // إذا كانت كلمة السر مكتوبة مباشرة في المسار 'admin'
+            }
+
+            if (savedPassword && savedPassword.toString().trim() === passwordInput) {
                 loginModal.classList.remove('active');
                 loginSuccess();
             } else {
+                console.warn("كلمة السر المدخلة:", passwordInput);
+                console.warn("كلمة السر في السيرفر:", savedPassword);
                 alert("كلمة المرور غير صحيحة.");
             }
         } catch (error) {
-            console.error(error);
-            alert("خطأ في الاتصال بالقاعدة.");
+            console.error("خطأ تقني:", error);
+            alert("فشل الوصول لقاعدة البيانات. تأكد من إعدادات الـ Rules.");
         }
     };
 }
 
 function loginSuccess() {
     isAdmin = true;
-    if (sidebar) sidebar.classList.add('active');
-    if (sidebarOverlay) sidebarOverlay.classList.add('active');
+    sidebar.classList.add('active');
+    sidebarOverlay.classList.add('active');
     if (adminBtn) adminBtn.style.display = 'none';
     showToast("تم تسجيل الدخول بنجاح", "success");
     loadProducts();
@@ -126,8 +133,7 @@ async function saveProduct() {
             await update(ref(dbProducts, `products/${currentEditId}`), productData);
             showToast("تم التحديث");
         } else {
-            const newRef = push(ref(dbProducts, 'products'));
-            await set(newRef, productData);
+            await set(push(ref(dbProducts, 'products')), productData);
             showToast("تم النشر");
         }
         resetForm();
