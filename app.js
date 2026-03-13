@@ -53,40 +53,19 @@ if (loginForm) {
     loginForm.onsubmit = async (e) => {
         e.preventDefault();
         const passwordInput = document.getElementById('password').value.trim();
-
         try {
-            // جلب المجلد 'admin' بالكامل
-            const adminRef = ref(dbAdmin, 'admin');
+            const adminRef = ref(dbAdmin, 'admin'); 
             const snapshot = await get(adminRef);
-            
-            if (!snapshot.exists()) {
-                console.error("المسار 'admin' غير موجود في قاعدة البيانات!");
-                alert("خطأ: لم يتم العثور على إعدادات الإدمن في السيرفر.");
-                return;
-            }
-
             const data = snapshot.val();
-            console.log("البيانات المستلمة من السيرفر:", data);
 
-            // فحص كلمة السر بأكثر من طريقة لضمان المطابقة
-            let savedPassword = "";
-            if (typeof data === 'object') {
-                savedPassword = data.password; // إذا كان المسار يحتوي على حقل password
-            } else {
-                savedPassword = data; // إذا كانت كلمة السر مكتوبة مباشرة في المسار 'admin'
-            }
-
-            if (savedPassword && savedPassword.toString().trim() === passwordInput) {
+            if (data && data.password && data.password.toString().trim() === passwordInput) {
                 loginModal.classList.remove('active');
                 loginSuccess();
             } else {
-                console.warn("كلمة السر المدخلة:", passwordInput);
-                console.warn("كلمة السر في السيرفر:", savedPassword);
                 alert("كلمة المرور غير صحيحة.");
             }
         } catch (error) {
-            console.error("خطأ تقني:", error);
-            alert("فشل الوصول لقاعدة البيانات. تأكد من إعدادات الـ Rules.");
+            alert("فشل التحقق: تأكد من صلاحية القراءة في القاعدة الأولى.");
         }
     };
 }
@@ -96,7 +75,7 @@ function loginSuccess() {
     sidebar.classList.add('active');
     sidebarOverlay.classList.add('active');
     if (adminBtn) adminBtn.style.display = 'none';
-    showToast("تم تسجيل الدخول بنجاح", "success");
+    showToast("تم تسجيل الدخول كإدمن", "success");
     loadProducts();
 }
 
@@ -117,7 +96,7 @@ async function saveProduct() {
     const discountPercent = document.getElementById('discountPercent').value || 0;
 
     if (!name || !price) {
-        showToast("يرجى إكمال البيانات", "error");
+        showToast("الرجاء إدخال الاسم والسعر", "error");
         return;
     }
 
@@ -131,14 +110,14 @@ async function saveProduct() {
     try {
         if (currentEditId) {
             await update(ref(dbProducts, `products/${currentEditId}`), productData);
-            showToast("تم التحديث");
+            showToast("تم التحديث بنجاح");
         } else {
             await set(push(ref(dbProducts, 'products')), productData);
-            showToast("تم النشر");
+            showToast("تم النشر بنجاح");
         }
         resetForm();
     } catch (error) {
-        showToast("فشل الحفظ", "error");
+        showToast("خطأ في الصلاحيات: تأكد من Rules القاعدة الثانية", "error");
     }
 }
 
@@ -176,11 +155,11 @@ function loadProducts() {
 }
 
 window.deleteProduct = async (id) => {
-    if (isAdmin && confirm("هل تريد الحذف؟")) {
+    if (isAdmin && confirm("حذف المنتج؟")) {
         try {
             await remove(ref(dbProducts, `products/${id}`));
             showToast("تم الحذف");
-        } catch (e) { showToast("فشل الحذف", "error"); }
+        } catch (error) { showToast("فشل الحذف", "error"); }
     }
 };
 
@@ -217,9 +196,6 @@ function showToast(msg, type) {
     setTimeout(() => toast.classList.remove('show'), 3000);
 }
 
-if (saveProductBtn) saveProductBtn.onclick = saveProduct;
-if (addProductBtn) addProductBtn.onclick = () => addProductForm.classList.toggle('active');
-
 const hasDiscountCheck = document.getElementById('hasDiscount');
 const discountGroup = document.getElementById('discountGroup');
 if (hasDiscountCheck && discountGroup) {
@@ -227,5 +203,8 @@ if (hasDiscountCheck && discountGroup) {
         discountGroup.style.display = hasDiscountCheck.checked ? 'block' : 'none';
     };
 }
+
+if (saveProductBtn) saveProductBtn.onclick = saveProduct;
+if (addProductBtn) addProductBtn.onclick = () => addProductForm.classList.toggle('active');
 
 loadProducts();
