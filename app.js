@@ -30,45 +30,64 @@ const dbProducts = getDatabase(appProducts);
 let isAdmin = false;
 let currentEditId = null;
 
-const loginBtn = document.getElementById('loginBtn');
-const adminPanel = document.getElementById('adminPanel');
+const adminBtn = document.getElementById('adminBtn');
+const loginModal = document.getElementById('loginModal');
+const closeModal = document.getElementById('closeModal');
+const loginForm = document.getElementById('loginForm');
+const sidebar = document.getElementById('sidebar');
+const sidebarOverlay = document.getElementById('sidebarOverlay');
+const closeSidebar = document.getElementById('closeSidebar');
 const productsGrid = document.getElementById('productsGrid');
 const addProductBtn = document.getElementById('addProductBtn');
 const addProductForm = document.getElementById('addProductForm');
 const saveProductBtn = document.getElementById('saveProductBtn');
 const toast = document.getElementById('toast');
 
-async function handleLogin() {
-    const password = prompt("أدخل كلمة مرور الإدمن:");
-    if (!password) return;
+if (adminBtn) adminBtn.onclick = () => loginModal.classList.add('active');
+if (closeModal) closeModal.onclick = () => loginModal.classList.remove('active');
+if (sidebarOverlay) sidebarOverlay.onclick = () => {
+    sidebar.classList.remove('active');
+    sidebarOverlay.classList.remove('active');
+};
 
-    try {
-        const adminRef = ref(dbAdmin, 'adminConfig');
-        const snapshot = await get(adminRef);
-        const data = snapshot.val();
-
-        if (data && data.password === password) {
-            loginSuccess();
-        } else {
-            alert("كلمة المرور غير صحيحة.");
+if (loginForm) {
+    loginForm.onsubmit = async (e) => {
+        e.preventDefault();
+        const passwordInput = document.getElementById('password').value;
+        try {
+            const adminRef = ref(dbAdmin, 'adminConfig');
+            const snapshot = await get(adminRef);
+            const data = snapshot.val();
+            if (data && data.password === passwordInput) {
+                loginModal.classList.remove('active');
+                loginSuccess();
+            } else {
+                alert("كلمة المرور غير صحيحة.");
+            }
+        } catch (error) {
+            alert("فشل التحقق: تأكد من صلاحية القراءة.");
         }
-    } catch (error) {
-        console.error(error);
-        alert("فشل التحقق: تأكد من تفعيل صلاحية القراءة في القاعدة الأولى.");
-    }
+    };
 }
 
 function loginSuccess() {
     isAdmin = true;
-    if (adminPanel) adminPanel.style.display = 'block';
-    if (loginBtn) loginBtn.style.display = 'none';
+    sidebar.classList.add('active');
+    sidebarOverlay.classList.add('active');
+    if (adminBtn) adminBtn.style.display = 'none';
     showToast("تم تسجيل الدخول كإدمن", "success");
     loadProducts();
 }
 
+if (closeSidebar) {
+    closeSidebar.onclick = () => {
+        sidebar.classList.remove('active');
+        sidebarOverlay.classList.remove('active');
+    };
+}
+
 async function saveProduct() {
     if (!isAdmin) return;
-
     const name = document.getElementById('productName').value.trim();
     const desc = document.getElementById('productDesc').value.trim();
     const price = document.getElementById('productPrice').value.trim();
@@ -82,12 +101,9 @@ async function saveProduct() {
     }
 
     const productData = {
-        name: name,
-        description: desc,
-        price: price,
+        name, description: desc, price, 
         image: image || 'https://files.catbox.moe/y6fqhh.jpg',
-        hasDiscount: hasDiscount,
-        discountPercent: hasDiscount ? discountPercent : 0,
+        hasDiscount, discountPercent: hasDiscount ? discountPercent : 0,
         timestamp: Date.now()
     };
 
@@ -96,48 +112,42 @@ async function saveProduct() {
             await update(ref(dbProducts, `products/${currentEditId}`), productData);
             showToast("تم التحديث بنجاح");
         } else {
-            const newRef = push(ref(dbProducts, 'products'));
-            await set(newRef, productData);
+            await set(push(ref(dbProducts, 'products')), productData);
             showToast("تم النشر بنجاح");
         }
         resetForm();
     } catch (error) {
-        console.error(error);
-        showToast("خطأ: تأكد من صلاحيات الكتابة في القاعدة الثانية", "error");
+        showToast("خطأ في الصلاحيات", "error");
     }
 }
 
 function loadProducts() {
-    const productsRef = ref(dbProducts, 'products');
-    onValue(productsRef, (snapshot) => {
+    onValue(ref(dbProducts, 'products'), (snapshot) => {
         const data = snapshot.val();
         if (!productsGrid) return;
         productsGrid.innerHTML = '';
         if (data) {
             Object.keys(data).reverse().forEach(id => {
                 const item = data[id];
-                const finalPrice = item.hasDiscount 
-                    ? item.price - (item.price * (item.discountPercent / 100))
-                    : item.price;
+                const finalPrice = item.hasDiscount ? item.price - (item.price * (item.discountPercent / 100)) : item.price;
                 const card = document.createElement('div');
-                card.className = 'product-card glass-effect';
+                card.className = 'product-card';
                 card.innerHTML = `
-                    <img src="${item.image}">
+                    <img src="${item.image}" class="product-image">
                     <div class="product-info">
-                        <h3>${item.name}</h3>
-                        <p>${item.description}</p>
-                        <div class="price-container">
-                            ${item.hasDiscount ? `<span class="old-price">${item.price} د.ع</span>` : ''}
-                            <span class="current-price">${finalPrice} د.ع</span>
+                        <h3 class="product-name">${item.name}</h3>
+                        <p class="product-description">${item.description}</p>
+                        <div class="product-price-container">
+                            ${item.hasDiscount ? `<span class="original-price">${item.price} د.ع</span>` : ''}
+                            <span class="product-price">${finalPrice} د.ع</span>
                         </div>
-                        <div class="actions">
+                        <div class="product-actions">
                             ${isAdmin ? `
-                                <button onclick="editProduct('${id}')" class="edit-btn"><i class="fas fa-edit"></i></button>
-                                <button onclick="deleteProduct('${id}')" class="delete-btn"><i class="fas fa-trash"></i></button>
+                                <button onclick="editProduct('${id}')" class="btn-edit"><i class="fas fa-edit"></i></button>
+                                <button onclick="deleteProduct('${id}')" class="btn-delete"><i class="fas fa-trash"></i></button>
                             ` : ''}
                         </div>
-                    </div>
-                `;
+                    </div>`;
                 productsGrid.appendChild(card);
             });
         }
@@ -145,14 +155,11 @@ function loadProducts() {
 }
 
 window.deleteProduct = async (id) => {
-    if (!isAdmin) return;
-    if (confirm("حذف المنتج؟")) {
+    if (isAdmin && confirm("حذف المنتج؟")) {
         try {
             await remove(ref(dbProducts, `products/${id}`));
             showToast("تم الحذف");
-        } catch (error) {
-            showToast("فشل الحذف", "error");
-        }
+        } catch (error) { showToast("فشل الحذف", "error"); }
     }
 };
 
@@ -167,7 +174,7 @@ window.editProduct = async (id) => {
         document.getElementById('hasDiscount').checked = item.hasDiscount;
         document.getElementById('discountPercent').value = item.discountPercent;
         currentEditId = id;
-        if (addProductForm) addProductForm.classList.add('active');
+        addProductForm.classList.add('active');
     }
 };
 
@@ -179,7 +186,7 @@ function resetForm() {
     document.getElementById('productImage').value = '';
     document.getElementById('hasDiscount').checked = false;
     document.getElementById('discountPercent').value = '';
-    if (addProductForm) addProductForm.classList.remove('active');
+    addProductForm.classList.remove('active');
 }
 
 function showToast(msg, type) {
@@ -189,8 +196,15 @@ function showToast(msg, type) {
     setTimeout(() => toast.classList.remove('show'), 3000);
 }
 
-if (loginBtn) loginBtn.addEventListener('click', handleLogin);
-if (saveProductBtn) saveProductBtn.addEventListener('click', saveProduct);
-if (addProductBtn) addProductBtn.addEventListener('click', () => addProductForm.classList.toggle('active'));
+const hasDiscountCheck = document.getElementById('hasDiscount');
+const discountGroup = document.getElementById('discountGroup');
+if (hasDiscountCheck) {
+    hasDiscountCheck.onchange = () => {
+        discountGroup.style.display = hasDiscountCheck.checked ? 'block' : 'none';
+    };
+}
+
+if (saveProductBtn) saveProductBtn.onclick = saveProduct;
+if (addProductBtn) addProductBtn.onclick = () => addProductForm.classList.toggle('active');
 
 loadProducts();
